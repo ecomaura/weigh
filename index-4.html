@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Weigh – brainstorm and decide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f2f4f7;--card:#fff;--ink:#18202b;--mute:#667085;--line:#dde2ea;--acc:#2f5bea;--acc-ink:#fff;--win:#1f8a5b;--star:#e8a317;--danger:#c23b3b}
+@media (prefers-color-scheme:dark){:root{--bg:#10141b;--card:#181e28;--ink:#e8ecf3;--mute:#8b95a7;--line:#2a3342;--acc:#6b8cff;--acc-ink:#0b0f18;--win:#3fc28a;--star:#f0b43a;--danger:#ef7b7b}}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:16px/1.5 "Instrument Sans",system-ui,-apple-system,"Segoe UI",sans-serif}
+header{max-width:860px;margin:0 auto;padding:20px 16px 8px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+h1{margin:0;font-size:26px;letter-spacing:-.02em}
+nav{display:flex;gap:4px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:3px}
+.tab{border:0;background:none;color:var(--mute);font:inherit;font-weight:600;padding:7px 16px;border-radius:8px;cursor:pointer}
+.tab.on{background:var(--acc);color:var(--acc-ink)}
+main{max-width:860px;margin:0 auto;padding:8px 16px 60px}
+button,input,select,textarea{font:inherit;color:inherit}
+input,select,textarea{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-width:0}
+input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+button{cursor:pointer;border:1px solid var(--line);background:var(--card);border-radius:8px;padding:8px 12px}
+button.pri{background:var(--acc);color:var(--acc-ink);border-color:var(--acc);font-weight:600}
+button.ghost{border-color:transparent;background:none;color:var(--mute);padding:4px 8px}
+button.ghost:hover{color:var(--danger)}
+.row{display:flex;gap:8px;margin-bottom:12px}
+.row input{flex:1}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:12px}
+h2{font-size:15px;margin:0 0 10px;font-weight:700}
+.idea{display:flex;align-items:flex-start;gap:8px;padding:10px 0;border-bottom:1px solid var(--line)}
+.idea:last-child{border:0}
+.idea .t{flex:1;word-break:break-word}
+.star{font-size:20px;line-height:1;color:var(--line);padding:2px 6px}
+.star.on{color:var(--star)}
+.item{display:flex;gap:8px;margin-bottom:8px;align-items:center}
+.item input[type=text]{flex:1}
+.empty{color:var(--mute);text-align:center;padding:28px 12px}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:420px}
+th,td{padding:8px 6px;text-align:center;border-bottom:1px solid var(--line)}
+th:first-child,td:first-child{text-align:left;font-weight:600}
+th small{display:block;color:var(--mute);font-weight:400}
+td select{width:58px;padding:6px 4px}
+.res{display:grid;grid-template-columns:minmax(80px,160px) 1fr 52px;gap:10px;align-items:center;margin:8px 0}
+.bar{height:14px;background:var(--line);border-radius:7px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--acc);border-radius:7px}
+.res.top .bar i{background:var(--win)}
+.res.top b{color:var(--win)}
+.pct{text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
+.hint{color:var(--mute);font-size:14px;margin:0 0 10px}
+.tools{display:flex;gap:8px;flex-wrap:wrap;margin-top:24px}
+textarea{width:100%;min-height:90px;resize:vertical}
+</style>
+</head>
+<body>
+<header>
+  <h1>Weigh</h1>
+  <nav><button class="tab" data-act="tab" data-v="ideas">Ideas</button><button class="tab" data-act="tab" data-v="decide">Decide</button></nav>
+</header>
+<main id="app"></main>
+<script>
+const KEY='weigh-v1';
+let S=load();
+function load(){try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&s.ideas)return s}catch(e){}return{ideas:[],decisions:[],cur:null,tab:'ideas'}}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+const uid=()=>Math.random().toString(36).slice(2,9);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const cur=()=>S.decisions.find(d=>d.id===S.cur)||S.decisions[0];
+const $=id=>document.getElementById(id);
+
+function render(focus){
+  document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('on',b.dataset.v===S.tab));
+  $('app').innerHTML=S.tab==='ideas'?ideasView():decideView();
+  if(focus&&$(focus))$(focus).focus();
+  save();
+}
+
+function ideasView(){
+  const list=[...S.ideas].sort((a,b)=>(b.star|0)-(a.star|0));
+  const d=cur();
+  return `<p class="hint">Capture anything, then star what's promising. Starred ideas can become options in a decision.</p>
+  <div class="row"><input id="ni" placeholder="Write an idea, plan, or question" autocomplete="off"><button class="pri" data-act="add-idea">Add idea</button></div>
+  <div class="card">${list.length?list.map(i=>`<div class="idea">
+    <button class="ghost star ${i.star?'on':''}" data-act="star" data-id="${i.id}" aria-label="Star idea">★</button>
+    <div class="t">${esc(i.text)}</div>
+    ${d?`<button class="ghost" data-act="to-opt" data-id="${i.id}" title="Add to ${esc(d.title)}">Use as option</button>`:''}
+    <button class="ghost" data-act="del-idea" data-id="${i.id}" aria-label="Delete idea">Delete</button></div>`).join(''):'<div class="empty">No ideas yet. Type one above and press Enter.</div>'}</div>
+  ${tools()}`;
+}
+
+function tools(){return `<div class="tools"><button data-act="export">Export backup</button><button data-act="import">Import backup</button><input type="file" id="file" accept="application/json" hidden></div>`}
+
+function score(d){
+  const tw=d.criteria.reduce((a,c)=>a+c.w,0);
+  return d.options.map(o=>{
+    const sum=d.criteria.reduce((a,c)=>a+c.w*((d.scores[o.id]||{})[c.id]||0),0);
+    return{o,pct:tw?Math.round(sum/(tw*5)*100):0};
+  }).sort((a,b)=>b.pct-a.pct);
+}
+
+function decideView(){
+  if(!S.decisions.length)return `<div class="card empty">Decisions compare options against criteria you care about.<br><br><button class="pri" data-act="new-dec">Start a decision</button></div>${tools()}`;
+  const d=cur(),res=score(d),n=(a,b)=>a.map(b).join('');
+  return `<div class="row"><select id="sel" data-f="sel" style="flex:1">${n(S.decisions,x=>`<option value="${x.id}" ${x.id===d.id?'selected':''}>${esc(x.title)}</option>`)}</select>
+    <button data-act="new-dec">New</button><button data-act="del-dec">Delete</button></div>
+  <div class="card"><h2>Decision</h2><input type="text" data-f="title" value="${esc(d.title)}" style="width:100%"></div>
+  <div class="card"><h2>Options</h2>${n(d.options,o=>`<div class="item"><input type="text" data-f="opt" data-id="${o.id}" value="${esc(o.name)}"><button class="ghost" data-act="del-opt" data-id="${o.id}">Remove</button></div>`)}
+    <div class="item"><input type="text" id="no" placeholder="Add an option" autocomplete="off"><button data-act="add-opt">Add</button></div></div>
+  <div class="card"><h2>What matters</h2><p class="hint">Weight each criterion from 1 (minor) to 5 (critical).</p>
+    ${n(d.criteria,c=>`<div class="item"><input type="text" data-f="crit" data-id="${c.id}" value="${esc(c.name)}"><select data-f="w" data-id="${c.id}" aria-label="Weight">${[1,2,3,4,5].map(v=>`<option ${v===c.w?'selected':''}>${v}</option>`).join('')}</select><button class="ghost" data-act="del-crit" data-id="${c.id}">Remove</button></div>`)}
+    <div class="item"><input type="text" id="nc" placeholder="Add a criterion, like cost or risk" autocomplete="off"><button data-act="add-crit">Add</button></div></div>
+  ${d.options.length&&d.criteria.length?`<div class="card"><h2>Score each option</h2><p class="hint">Rate 1 (poor) to 5 (excellent). Unrated counts as 0.</p>
+    <div class="scroll"><table><tr><th></th>${n(d.criteria,c=>`<th>${esc(c.name)}<small>weight ${c.w}</small></th>`)}</tr>
+    ${n(d.options,o=>`<tr><td>${esc(o.name)}</td>${n(d.criteria,c=>{const v=(d.scores[o.id]||{})[c.id]||0;return `<td><select data-f="score" data-o="${o.id}" data-c="${c.id}" aria-label="Score">${[0,1,2,3,4,5].map(k=>`<option value="${k}" ${k===v?'selected':''}>${k||'–'}</option>`).join('')}</select></td>`})}</tr>`)}</table></div></div>
+  <div class="card"><h2>Result</h2>${n(res,(r,i)=>`<div class="res ${i===0&&r.pct>0?'top':''}"><b>${esc(r.o.name)}</b><div class="bar"><i style="width:${r.pct}%"></i></div><span class="pct">${r.pct}%</span></div>`)}
+    <p class="hint">${res[0]&&res[0].pct>0?(res.length>1&&res[0].pct-res[1].pct<=5?'Close call. Revisit your weights or add a criterion that separates them.':`Leading option: ${esc(res[0].o.name)}.`):'Score your options to see a ranking.'}</p></div>`:''}
+  <div class="card"><h2>Notes</h2><textarea data-f="notes" placeholder="Risks, unknowns, what you'd need to learn first">${esc(d.notes||'')}</textarea></div>
+  ${tools()}`;
+}
+
+const app=$('app');
+app.addEventListener('click',e=>{
+  const b=e.target.closest('[data-act]');if(!b)return;
+  const a=b.dataset.act,id=b.dataset.id,d=S.decisions.length?cur():null;
+  if(a==='tab'){S.tab=b.dataset.v;return render()}
+  if(a==='add-idea'){const v=$('ni').value.trim();if(v)S.ideas.unshift({id:uid(),text:v,star:0});return render('ni')}
+  if(a==='star'){const i=S.ideas.find(x=>x.id===id);i.star=i.star?0:1;return render()}
+  if(a==='del-idea'){S.ideas=S.ideas.filter(x=>x.id!==id);return render()}
+  if(a==='to-opt'){const i=S.ideas.find(x=>x.id===id);d.options.push({id:uid(),name:i.text});S.tab='decide';return render()}
+  if(a==='new-dec'){const t=prompt('What are you deciding?');if(!t)return;const nd={id:uid(),title:t,options:[],criteria:['Cost','Effort','Impact'].map(n=>({id:uid(),name:n,w:3})),scores:{},notes:''};S.decisions.push(nd);S.cur=nd.id;S.tab='decide';return render('no')}
+  if(a==='del-dec'){if(confirm('Delete "'+d.title+'"?')){S.decisions=S.decisions.filter(x=>x.id!==d.id);S.cur=null}return render()}
+  if(a==='add-opt'){const v=$('no').value.trim();if(v)d.options.push({id:uid(),name:v});return render('no')}
+  if(a==='del-opt'){d.options=d.options.filter(x=>x.id!==id);delete d.scores[id];return render()}
+  if(a==='add-crit'){const v=$('nc').value.trim();if(v)d.criteria.push({id:uid(),name:v,w:3});return render('nc')}
+  if(a==='del-crit'){d.criteria=d.criteria.filter(x=>x.id!==id);return render()}
+  if(a==='export'){const u=URL.createObjectURL(new Blob([JSON.stringify(S,null,2)],{type:'application/json'}));const l=document.createElement('a');l.href=u;l.download='weigh-backup.json';l.click();URL.revokeObjectURL(u)}
+  if(a==='import')$('file').click();
+});
+app.addEventListener('change',e=>{
+  const t=e.target;
+  if(t.id==='file'&&t.files[0]){const r=new FileReader();r.onload=()=>{try{const s=JSON.parse(r.result);if(!s.ideas||!s.decisions)throw 0;S=s;render()}catch(x){alert('That file is not a Weigh backup.')}};r.readAsText(t.files[0]);return}
+  const f=t.dataset.f;if(!f)return;
+  if(f==='sel'){S.cur=t.value;return render()}
+  const d=cur(),id=t.dataset.id;
+  if(f==='title')d.title=t.value.trim()||d.title;
+  if(f==='opt')d.options.find(x=>x.id===id).name=t.value;
+  if(f==='crit')d.criteria.find(x=>x.id===id).name=t.value;
+  if(f==='w')d.criteria.find(x=>x.id===id).w=+t.value;
+  if(f==='score'){(d.scores[t.dataset.o]=d.scores[t.dataset.o]||{})[t.dataset.c]=+t.value}
+  if(f==='notes'){d.notes=t.value;return save()}
+  render();
+});
+app.addEventListener('keydown',e=>{
+  if(e.key!=='Enter')return;
+  const m={ni:'add-idea',no:'add-opt',nc:'add-crit'}[e.target.id];
+  if(m){e.preventDefault();app.querySelector(`[data-act="${m}"]`).click()}
+});
+document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>{S.tab=b.dataset.v;render()}));
+render();
+</script>
+</body>
+</html>
